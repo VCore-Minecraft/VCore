@@ -1,0 +1,47 @@
+name: VCore
+main: de.verdox.vcore.impl.gameserver.paper.VCorePaper
+version: 1.0
+author: Verdox
+load: STARTUP
+
+commands:
+  teleport:
+    description: "Allows cross server teleportation"
+    permission: "vcore.teleport"
+  heal:
+    description: "Allows cross server healing"
+    permission: "vcore.  heal"
+  feed:
+    description: "Allows cross server feeding"
+    permission: "vcore.feed"
+  gameMode:
+    description: "Allows cross server gamemode change"
+    permission: "vcore.gamemode"
+  broadcast:
+    description: "Allows cross server broadcasting"
+    permission: "vcore.broadcast"
+  clearInventory:
+    description: "Allows cross server inventory clearing"
+    permission: "vcore.clearInventory"
+  kick:
+    description: "Allows cross server kicking"
+    permission: "vcore.kick"
+  kill:
+    description: "Allows cross server killing"
+    permission: "vcore.kill"
+  message:
+    aliases:
+      - msg
+      - tell
+    description: "Allows cross server private messaging"
+    permission: "vcore.msg"
+
+libraries:
+  - commons-codec:commons-codec:1.15
+  - com.google.code.gson:gson:2.10
+  - commons-io:commons-io:2.11.0
+  - com.google.guava:guava:31.1-jre
+  - org.mongodb:mongo-java-driver:3.12.11
+  - org.mongodb:bson:4.7.1
+  - org.jetbrains:annotations:23.0.0
+  - com.zaxxer:HikariCP:5.0.1
