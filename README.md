@@ -30,10 +30,11 @@ The api will get big changes so use it at your own risk!
 	</repositories>
  
  	<dependency>
-	    <groupId>com.github.derverdox</groupId>
+	    <groupId>com.github.VCore-Minecraft</groupId>
 	    <artifactId>VCore</artifactId>
 	    <version>Tag</version>
 	</dependency>
+	
 	
 
 ## Contributions:
