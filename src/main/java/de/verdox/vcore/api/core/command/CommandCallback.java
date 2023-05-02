@@ -3,6 +3,8 @@ package de.verdox.vcore.api.core.command;
 import de.verdox.vcore.api.core.PlatformDependentImplementation;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
 import de.verdox.vcore.api.core.network.VCoreServer;
+import de.verdox.vcore.impl.core.network.VCorePlayerImpl;
+import de.verdox.vpipeline.api.network.RemoteParticipant;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -142,16 +144,14 @@ public abstract class CommandCallback<T, S, P, C extends CommandSenderInfo<T, S,
                 if (commandAskParameter.getCommandAskType().equals(CommandAskType.PLAYER)) {
                     var foundPlayer = VCoreNetwork
                             .getInstance()
-                            .getOnlinePlayers()
-                            .join()
+                            .getPipeline().getLocalCache().loadAllData(VCorePlayerImpl.class)
                             .parallelStream()
-                            .filter(vCorePlayerDataReference -> isProxyNetwork || vCorePlayerDataReference
-                                    .load()
-                                    .join()
-                                    .getter(vCorePlayer -> vCorePlayer.getCurrentServer().isServer(currentServer)))
-                            .filter(reference -> reference.load().join().getter(vCorePlayer -> vCorePlayer
-                                    .getName()
-                                    .equals(argument))).findAny().orElse(null);
+                            .filter(vCorePlayer -> isProxyNetwork || vCorePlayer.getCurrentServer()
+                                                                                .isServer(currentServer))
+                            .filter(vCorePlayer -> vCorePlayer.getName().equals(argument))
+                            .map(vCorePlayer -> vCorePlayer.getAttachedPipeline().getAttachedPipeline()
+                                                           .createDataReference(vCorePlayer.getClass(), vCorePlayer.getObjectUUID()))
+                            .findAny().orElse(null);
 
                     if (foundPlayer == null) {
                         sendMessage(sender, "§cPlayer not found§7!");
@@ -220,10 +220,12 @@ public abstract class CommandCallback<T, S, P, C extends CommandSenderInfo<T, S,
                 } else if (commandAskParameter.getCommandAskType().equals(CommandAskType.GAMESERVER)) {
                     var server = VCoreNetwork
                             .getInstance()
-                            .getServers()
-                            .join()
+                            .getPipeline().getLocalCache().loadAllData(RemoteParticipant.class)
                             .parallelStream()
-                            .filter(vCoreServer -> vCoreServer.getName().join().equals(argument))
+                            .filter(remoteParticipant -> remoteParticipant.getIdentifier().equals(argument))
+                            .map(remoteParticipant -> new VCoreServer(remoteParticipant.getAttachedPipeline()
+                                                                                       .getAttachedPipeline()
+                                                                                       .createDataReference(remoteParticipant.getClass(), remoteParticipant.getObjectUUID())))
                             .findAny()
                             .orElse(null);
 
@@ -233,8 +235,7 @@ public abstract class CommandCallback<T, S, P, C extends CommandSenderInfo<T, S,
                         return new CallbackResponse(CallbackResponse.ResponseType.FAILURE, true);
                     }
                     providedArguments.add(server);
-                }
-                else if(commandAskParameter.getCommandAskType().equals(CommandAskType.ENUM))
+                } else if (commandAskParameter.getCommandAskType().equals(CommandAskType.ENUM))
                     providedArguments.add(argument);
             }
         }

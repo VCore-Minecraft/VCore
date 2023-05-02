@@ -11,6 +11,10 @@ public abstract class VCoreListener<T> {
         registerListener(platformPlugin);
     }
 
+    public T getPlatformPlugin() {
+        return platformPlugin;
+    }
+
     protected abstract void registerListener(T platformPlugin);
     protected abstract void unRegisterListener(T platformPlugin);
 }

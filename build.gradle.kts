@@ -2,15 +2,18 @@ plugins {
     `java-library`
     application
     `maven-publish`
-    id("io.ktor.plugin") version "2.2.1"
+    id("com.github.johnrengelman.shadow") version "8.1.0" apply true
 }
 
-group = "de.verdox"
+group = "de.verdox.vcore"
 version = "1.0"
 description = "VCore"
 
 repositories {
     mavenCentral()
+    maven("https://repo.papermc.io/repository/maven-public/")
+    maven("https://repo.codemc.org/repository/maven-public/")
+    maven("https://hub.jeff-media.com/nexus/repository/jeff-media-public/")
 }
 
 java {
@@ -20,21 +23,12 @@ java {
     withSourcesJar()
 }
 
-application{
-    mainClass.set("de.verdox.vcore.impl.gameserver.paper.VCorePaper")
-}
-
-ktor{
-    fatJar {
-        archiveFileName.set("fat.jar")
-    }
-}
-
 dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.0")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.0")
-    implementation("de.verdox.vpipeline:VPipeline:1.1")
-    compileOnly("io.papermc.paper:paper-api:1.19.3-R0.1-SNAPSHOT")
+    implementation("de.verdox.vpipeline:VPipeline:1.2")
+    implementation("de.tr7zw:item-nbt-api:2.11.2")
+    implementation("com.jeff_media:CustomBlockData:2.2.0")
+    implementation(project(":PaperUtil"))
+    compileOnly("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
     compileOnly("io.github.waterfallmc:waterfall-api:1.18-R0.1-SNAPSHOT")
 }
 
@@ -55,19 +49,6 @@ repositories {
     }
 }
 
-val fatJar = task("fatJar", type = Jar::class) {
-    baseName = "${project.name}-fat"
-    manifest {
-        attributes["Implementation-Title"] = "Gradle Jar File Example"
-        attributes["Implementation-Version"] = version
-        attributes["Main-Class"] = "com.mkyong.DateUtils"
-    }
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
-    with(tasks.jar.get() as CopySpec)
-}
-
-
 
 tasks {
     compileJava {
@@ -80,18 +61,14 @@ tasks {
         options.forkOptions.jvmArgs?.add("--add-exports java.base/jdk.internal.misc=ALL-UNNAMED");
     }
 
-    build {
-        dependsOn(fatJar)
+    shadowJar {
+        archiveBaseName.set("VCore")
+        archiveVersion.set(version.toString())
+
+        relocate("de.tr7zw.changeme.nbtapi", "de.verdox.vcore.impl.gameserver.paper.nbt")
+        relocate("com.jeff_media.customblockdata", "de.verdox.vcore.impl.gameserver.paper.customblockdata")
+        project.setProperty("mainClassName", "com.your.MainClass")
     }
-/*    jar {
-        manifest.attributes["Main-Class"] = "com.example.MyMainClass"
-        val dependencies = configurations
-            .runtimeClasspath
-            .get()
-            .map(::zipTree) // OR .map { zipTree(it) }
-        from(dependencies)
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    }*/
 
     processResources {
         filteringCharset = Charsets.UTF_8.name() // We want UTF-8 for everything
@@ -101,15 +78,9 @@ tasks {
 
 
 publishing {
-    publications.create<MavenPublication>("maven").from(components["java"]);
-    publications {
-        create<MavenPublication>("lib") {
-            artifact("/build/libs/$description-$version.jar")
-        }
-    }
-    repositories.maven(repositories.mavenLocal())
-}
 
-tasks.getByName<Test>("test") {
-    useJUnitPlatform()
+    publications.create<MavenPublication>("shadow").from(components["java"]);
+    /*    publications.create<MavenPublication>("maven").artifact("/build/libs/$description-$version.jar")*/
+
+    repositories.maven(repositories.mavenLocal())
 }

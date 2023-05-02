@@ -29,6 +29,9 @@ commands:
   kill:
     description: "Allows cross server killing"
     permission: "vcore.kill"
+  switchserver:
+    description: "Allows cross server switching"
+    permission: "vcore.switchServer"
   message:
     aliases:
       - msg
@@ -38,7 +41,6 @@ commands:
 
 libraries:
   - commons-codec:commons-codec:1.15
-  - com.google.code.gson:gson:2.10
   - commons-io:commons-io:2.11.0
   - com.google.guava:guava:31.1-jre
   - org.mongodb:mongo-java-driver:3.12.11

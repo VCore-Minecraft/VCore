@@ -2,14 +2,18 @@ package de.verdox.vcore.api.core.command;
 
 import de.verdox.vcore.api.core.PlatformDependentImplementation;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
+import de.verdox.vcore.api.core.network.VCoreServer;
 import de.verdox.vcore.api.core.network.data.VCorePlayer;
+import de.verdox.vcore.impl.core.network.VCorePlayerImpl;
 import de.verdox.vcore.impl.util.MojangAPI;
+import de.verdox.vpipeline.api.network.RemoteParticipant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -87,26 +91,22 @@ public abstract class CommandCallbackType<T> extends PlatformDependentImplementa
                     case BOOLEAN -> suggested.addAll(List.of("true", "false"));
                     case PLAYER -> VCoreNetwork
                             .getInstance()
-                            .getOnlinePlayers()
-                            .join()
-                            .stream()
-                            .map(vCorePlayerDataReference -> vCorePlayerDataReference
-                                    .loadOrCreate()
-                                    .join()
-                                    .getter(VCorePlayer::getName))
+                            .getPipeline().getLocalCache().loadAllData(VCorePlayerImpl.class)
+                            .parallelStream()
+                            .map(VCorePlayerImpl::getName)
                             .forEach(suggested::add);
                     case GAMESERVER -> VCoreNetwork
                             .getInstance()
-                            .getServers()
-                            .join()
+                            .getPipeline().getLocalCache().loadAllData(RemoteParticipant.class)
                             .parallelStream()
-                            .map(vCoreServer -> vCoreServer.getName().join())
+                            .map(RemoteParticipant::getIdentifier)
                             .forEach(suggested::add);
                 }
             }
 
             return suggested
                     .stream()
+                    .filter(Objects::nonNull)
                     .filter(suggestedArgument -> suggestedArgument
                             .toLowerCase(Locale.ROOT)
                             .startsWith(argument.toLowerCase(Locale.ROOT))).toList();

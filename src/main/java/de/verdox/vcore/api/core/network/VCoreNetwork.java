@@ -2,9 +2,10 @@ package de.verdox.vcore.api.core.network;
 
 import com.google.gson.GsonBuilder;
 import de.verdox.vcore.api.core.network.data.VCoreOfflinePlayer;
+import de.verdox.vcore.api.core.network.data.VCorePlayer;
 import de.verdox.vcore.api.core.network.messages.updates.*;
 import de.verdox.vcore.api.core.network.platform.Platform;
-import de.verdox.vcore.api.core.network.data.VCorePlayer;
+import de.verdox.vcore.api.core.network.platform.types.PlayerMessageType;
 import de.verdox.vcore.api.core.network.platform.types.ServerLocation;
 import de.verdox.vcore.impl.core.network.VCoreOfflinePlayerImpl;
 import de.verdox.vcore.impl.core.network.VCorePlayerImpl;
@@ -100,6 +101,9 @@ public final class VCoreNetwork {
 
         this.pipeline.getDataRegistry().registerType(VCorePlayerImpl.class);
         this.pipeline.getDataRegistry().registerType(VCoreOfflinePlayerImpl.class);
+
+        this.pipeline.loadAllData(VCorePlayerImpl.class);
+        this.pipeline.loadAllData(VCoreOfflinePlayerImpl.class);
     }
 
     public CompletableFuture<PipelineLock<VCorePlayer>> getPlayer(UUID uuid) {
@@ -110,20 +114,24 @@ public final class VCoreNetwork {
         return this.pipeline.createDataReference(VCorePlayerImpl.class, uuid);
     }
 
-    public CompletableFuture<PipelineLock<VCoreOfflinePlayer>> getOfflinePlayer(UUID uuid) {
-        return this.pipeline.load(VCoreOfflinePlayerImpl.class, uuid);
-    }
-
-    public CompletableFuture<Void> addPlayerToCache(UUID uuid, String displayName, ServerLocation serverLocation) {
+    public CompletableFuture<Void> addPlayerToCache(UUID uuid, String displayName, @Nullable ServerLocation serverLocation) {
         var future = new CompletableFuture<Void>();
         this.pipeline.loadOrCreate(VCorePlayerImpl.class, uuid).whenComplete((vCorePlayerPipelineLock, throwable) -> {
             vCorePlayerPipelineLock.performWriteOperation(vCorePlayer -> {
                 vCorePlayer.setDisplayName(displayName);
-                vCorePlayer.setCurrentServerLocation(serverLocation);
-                future.complete(null);
+                if (serverLocation != null)
+                    vCorePlayer.setCurrentServerLocation(serverLocation);
             });
+            future.complete(null);
         });
         return future;
+    }
+
+    public void broadCastMessage(PlayerMessageType playerMessageType, String message) {
+        messagingService.sendInstruction(BroadcastMessageUpdate.class, broadcastMessageUpdate -> {
+            broadcastMessageUpdate.playerMessageType = playerMessageType;
+            broadcastMessageUpdate.message = message;
+        });
     }
 
     public CompletableFuture<Boolean> removePlayerFromCache(UUID uuid) {
@@ -134,7 +142,8 @@ public final class VCoreNetwork {
         return getServer(networkParticipant.getIdentifier());
     }
 
-    public VCoreServer getServer(String serverName) {
+    public VCoreServer getServer(@NotNull String serverName) {
+        Objects.requireNonNull(serverName);
         return new VCoreServer(networkParticipant.getOnlineNetworkClient(serverName));
     }
 

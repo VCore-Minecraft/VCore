@@ -9,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -18,7 +19,7 @@ public class InventoryTypeAdapter extends TypeAdapter<Inventory> {
     public void write(JsonWriter out, Inventory value) throws IOException {
         out.beginObject();
         out.name("storageContents");
-        var base64 = PaperUtil.itemStackArrayToBase64(value.getStorageContents());
+        var base64 = PaperUtil.itemStackArrayToBase64(value.getContents());
         out.value(base64);
         out.name("type");
         out.value(value.getType().name());
@@ -34,6 +35,8 @@ public class InventoryTypeAdapter extends TypeAdapter<Inventory> {
         ItemStack[] items = null;
         InventoryType type = null;
         int maxStackSize = 64;
+
+        in.beginObject();
 
         while (in.hasNext()) {
             var token = in.peek();
@@ -52,10 +55,12 @@ public class InventoryTypeAdapter extends TypeAdapter<Inventory> {
             }
         }
 
-        Objects.requireNonNull(items, "No Items found during deserialization");
-        Objects.requireNonNull(type, "No Inventory type found during deserialization");
+        in.endObject();
+
+        Objects.requireNonNull(items);
+        Objects.requireNonNull(type);
         var inventory = Bukkit.createInventory(null, type);
-        inventory.setStorageContents(items);
+        inventory.setContents(items);
         inventory.setMaxStackSize(maxStackSize);
         return inventory;
     }

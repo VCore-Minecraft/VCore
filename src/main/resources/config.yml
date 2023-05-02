@@ -1,0 +1,41 @@
+Info:
+  Name: fm_nether
+  Address: localhost
+  Port: 25566
+Pipeline:
+  Cache:
+    enable: true
+    type: redis
+    redis:
+      useCluster: false
+      addresses:
+        - redis://localhost:6379
+      password: ''
+  DataSynchronizer:
+    enable: true
+    type: redis
+    redis:
+      useCluster: false
+      addresses:
+        - redis://localhost:6379
+      password: ''
+  GlobalStorage:
+    enable: true
+    type: mongodb
+    json:
+      path: ''
+    mongodb:
+      host: 127.0.0.1
+      port: '27017'
+      database: vcore
+      user: ''
+      password: ''
+      url: ''
+MessagingService:
+  enable: true
+  type: redis
+  redis:
+    useCluster: false
+    addresses:
+      - redis://localhost:6379
+    password: ''

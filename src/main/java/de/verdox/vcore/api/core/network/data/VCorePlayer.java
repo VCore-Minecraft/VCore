@@ -1,12 +1,11 @@
 package de.verdox.vcore.api.core.network.data;
 
 import de.verdox.vcore.api.core.network.VCoreServer;
-import de.verdox.vcore.api.core.network.platform.types.GameLocation;
-import de.verdox.vcore.api.core.network.platform.types.PlayerGameMode;
-import de.verdox.vcore.api.core.network.platform.types.PlayerMessageType;
-import de.verdox.vcore.api.core.network.platform.types.ServerLocation;
+import de.verdox.vcore.api.core.network.platform.types.*;
 import de.verdox.vpipeline.api.pipeline.datatypes.IPipelineData;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
+
+import java.util.concurrent.CompletableFuture;
 
 public interface VCorePlayer extends IPipelineData {
 
@@ -18,27 +17,29 @@ public interface VCorePlayer extends IPipelineData {
 
     String getName();
 
-    void teleport(GameLocation gameLocation);
+    CompletableFuture<Boolean> teleport(GameLocation gameLocation, TeleportCause teleportCause);
 
-    default void teleport(double x, double y, double z) {
-        teleport(new GameLocation(getGameLocation().worldName(), x, y, z, getGameLocation().yaw(), getGameLocation().pitch()));
+    default CompletableFuture<Boolean> teleport(double x, double y, double z, TeleportCause teleportCause) {
+        return teleport(new GameLocation(getGameLocation().worldName(), x, y, z, getGameLocation().yaw(), getGameLocation().pitch()), teleportCause);
     }
 
-    void teleport(ServerLocation serverLocation);
+    CompletableFuture<Boolean> teleport(ServerLocation serverLocation, TeleportCause teleportCause);
 
-    void teleportTo(DataReference<VCorePlayer> target);
+    CompletableFuture<Boolean> teleportTo(DataReference<VCorePlayer> target, TeleportCause teleportCause);
 
-    void sendMessage(String message, PlayerMessageType playerMessageType);
+    CompletableFuture<Boolean> switchServer(VCoreServer vCoreServer);
 
-    void setHealth(double health);
+    CompletableFuture<Boolean> sendMessage(String message, PlayerMessageType playerMessageType);
 
-    void setFood(int food);
+    CompletableFuture<Boolean> setHealth(double health);
 
-    void clearInventory();
+    CompletableFuture<Boolean> setFood(int food);
 
-    void kickPlayer();
+    CompletableFuture<Boolean> clearInventory();
 
-    void killPlayer();
+    CompletableFuture<Boolean> kickPlayer();
 
-    void setGameMode(PlayerGameMode playerGameMode);
+    CompletableFuture<Boolean> killPlayer();
+
+    CompletableFuture<Boolean> setGameMode(PlayerGameMode playerGameMode);
 }

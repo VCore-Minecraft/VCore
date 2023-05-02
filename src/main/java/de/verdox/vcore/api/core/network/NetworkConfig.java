@@ -20,6 +20,10 @@ import java.util.function.Consumer;
 
 public class NetworkConfig {
     private final YamlConfiguration yamlConfiguration;
+    private boolean debugMode;
+    private String debugName = "server";
+    private String debugAddress = "localhost";
+    private int debugPort = 25565;
     private final File file;
 
     public NetworkConfig(File file) {
@@ -44,7 +48,23 @@ public class NetworkConfig {
             throw new RuntimeException(e);
         }
 
+    }
 
+    public NetworkConfig(YamlConfiguration yamlConfiguration, boolean debugMode, String debugName, String debugAddress, int debugPort) {
+        this.yamlConfiguration = yamlConfiguration;
+        this.debugMode = debugMode;
+        this.debugName = debugName;
+        this.debugAddress = debugAddress;
+        this.debugPort = debugPort;
+        infoSetup();
+
+        pipelineCacheSetup();
+        pipelineSynchronizerSetup();
+        pipelineStorageSetup();
+        messagingTransmitterSetup();
+        yamlConfiguration.options().copyDefaults(true);
+
+        this.file = new File(Path.of("./resources/test").toString());
     }
 
     public NetworkParticipant constructParticipant(ScheduledExecutorService executorService, @Nullable Consumer<GsonBuilder> gsonBuilderConsumer) {
@@ -52,7 +72,12 @@ public class NetworkConfig {
                 .getConstructionService()
                 .createNetworkParticipant()
                 .withExecutorService(executorService)
-                .withPipeline(pipelineBuilder -> pipelineBuilder.withGson(gsonBuilderConsumer));
+                .withPipeline(pipelineBuilder -> {
+                    buildPipeline(pipelineBuilder);
+                    pipelineBuilder.withGson(gsonBuilderConsumer);
+                });
+
+
         if (yamlConfiguration.getBoolean("MessagingService.enable"))
             builder.withMessagingService(this::buildMessagingService);
         builder.withName(yamlConfiguration.getString("Info.Name"));
@@ -133,13 +158,13 @@ public class NetworkConfig {
     }
 
     private void infoSetup() {
-        yamlConfiguration.addDefault("Info.Name", "server");
-        yamlConfiguration.addDefault("Info.Address", "localhost");
-        yamlConfiguration.addDefault("Info.Port", 25565);
+        yamlConfiguration.addDefault("Info.Name", debugName);
+        yamlConfiguration.addDefault("Info.Address", debugAddress);
+        yamlConfiguration.addDefault("Info.Port", debugPort);
     }
 
     private void pipelineCacheSetup() {
-        yamlConfiguration.addDefault("Pipeline.Cache.enable", false);
+        yamlConfiguration.addDefault("Pipeline.Cache.enable", debugMode);
         yamlConfiguration.addDefault("Pipeline.Cache.type", "redis");
         // Redis - Cache Settings
         yamlConfiguration.addDefault("Pipeline.Cache.redis.useCluster", false);
@@ -149,7 +174,7 @@ public class NetworkConfig {
 
 
     private void pipelineSynchronizerSetup() {
-        yamlConfiguration.addDefault("Pipeline.DataSynchronizer.enable", false);
+        yamlConfiguration.addDefault("Pipeline.DataSynchronizer.enable", debugMode);
         yamlConfiguration.addDefault("Pipeline.DataSynchronizer.type", "redis");
         // Redis - Synchronizer Settings
         yamlConfiguration.addDefault("Pipeline.DataSynchronizer.redis.useCluster", false);
@@ -159,12 +184,12 @@ public class NetworkConfig {
 
     private void pipelineStorageSetup() {
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.enable", true);
-        yamlConfiguration.addDefault("Pipeline.GlobalStorage.type", "json");
+        yamlConfiguration.addDefault("Pipeline.GlobalStorage.type", "mongodb");
         // Json - Storage Settings
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.json.path", "");
         // Mongo - Storage Settings
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.host", "127.0.0.1");
-        yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.port", "27017");
+        yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.port", 27017);
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.database", "vcore");
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.user", "");
         yamlConfiguration.addDefault("Pipeline.GlobalStorage.mongodb.password", "");
@@ -172,7 +197,7 @@ public class NetworkConfig {
     }
 
     private void messagingTransmitterSetup() {
-        yamlConfiguration.addDefault("MessagingService.enable", false);
+        yamlConfiguration.addDefault("MessagingService.enable", debugMode);
         yamlConfiguration.addDefault("MessagingService.type", "redis");
         yamlConfiguration.addDefault("MessagingService.redis.useCluster", false);
         yamlConfiguration.addDefault("MessagingService.redis.addresses", List.of("redis://localhost:6379"));

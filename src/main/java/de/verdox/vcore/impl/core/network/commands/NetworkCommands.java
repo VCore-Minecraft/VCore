@@ -4,11 +4,12 @@ import de.verdox.vcore.api.core.command.CommandAskType;
 import de.verdox.vcore.api.core.command.CommandExecutorType;
 import de.verdox.vcore.api.core.command.VCoreCommand;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
+import de.verdox.vcore.api.core.network.VCoreServer;
 import de.verdox.vcore.api.core.network.data.VCorePlayer;
 import de.verdox.vcore.api.core.network.messages.updates.BroadcastMessageUpdate;
 import de.verdox.vcore.api.core.network.messages.updates.ClearInventoryUpdate;
-import de.verdox.vcore.api.core.network.platform.types.PlayerGameMode;
-import de.verdox.vcore.api.core.network.platform.types.PlayerMessageType;
+import de.verdox.vcore.api.core.network.platform.types.*;
+import de.verdox.vcore.impl.gameserver.paper.VCorePaper;
 import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 
 import java.util.Arrays;
@@ -22,8 +23,7 @@ public class NetworkCommands {
                         var message = commandParameters.getObject(0, String.class);
                         VCoreNetwork
                                 .getInstance()
-                                .getMessagingService()
-                                .sendInstruction(BroadcastMessageUpdate.class, booleanInstruction -> booleanInstruction.withData(PlayerMessageType.CHAT, message));
+                                .broadCastMessage(PlayerMessageType.CHAT, message);
                     });
     }
 
@@ -50,8 +50,7 @@ public class NetworkCommands {
                     .askFor("player", CommandAskType.PLAYER)
                     .commandCallback((commandSenderInfo, commandParameters) -> {
                         var target = commandParameters.getReference(0, VCorePlayer.class);
-
-                        target.load().join().performReadOperation(VCorePlayer::kickPlayer);
+                        target.writeAsync(VCorePlayer::kickPlayer);
                     });
     }
 
@@ -60,7 +59,7 @@ public class NetworkCommands {
                     .askFor("player", CommandAskType.PLAYER)
                     .commandCallback((commandSenderInfo, commandParameters) -> {
                         var target = commandParameters.getReference(0, VCorePlayer.class);
-                        target.load().join().performReadOperation(VCorePlayer::killPlayer);
+                        target.writeAsync(VCorePlayer::killPlayer);
                     });
     }
 
@@ -72,6 +71,7 @@ public class NetworkCommands {
                     .commandCallback((commandSenderInfo, commandParameters) -> {
                         var target = commandParameters.getReference(0, VCorePlayer.class);
                         var message = commandParameters.getObject(1, String.class);
+
 
                         target
                                 .load()
@@ -151,6 +151,28 @@ public class NetworkCommands {
                     });
     }
 
+    public static void setupSwitchServerCommand(VCoreCommand<?, ?, ?, ?, ?> vCoreCommand) {
+        vCoreCommand.addCommandCallback("")
+                    .setExecutor(CommandExecutorType.PLAYER)
+                    .askFor("server", CommandAskType.GAMESERVER)
+                    .commandCallback((commandSenderInfo, commandParameters) -> commandSenderInfo
+                            .getAsVCorePlayer()
+                            .load()
+                            .join()
+                            .performWriteOperation(vCorePlayer -> vCorePlayer.switchServer(commandParameters.getObject(0, VCoreServer.class))));
+
+        vCoreCommand.addCommandCallback("")
+                    .setExecutor(CommandExecutorType.PLAYER)
+                    .askFor("server", CommandAskType.GAMESERVER)
+                    .askFor("player", CommandAskType.PLAYER)
+                    .commandCallback((commandSenderInfo, commandParameters) -> {
+                        var server = commandParameters.getObject(0, VCoreServer.class);
+                        var playerReference = commandParameters.getReference(1, VCorePlayer.class);
+                        playerReference.loadOrCreate().join()
+                                       .performWriteOperation(vCorePlayer -> vCorePlayer.switchServer(server));
+                    });
+    }
+
     public static void setupTeleportCommand(VCoreCommand<?, ?, ?, ?, ?> vCoreCommand) {
         vCoreCommand
                 .addCommandCallback("")
@@ -164,7 +186,8 @@ public class NetworkCommands {
                     var x = commandParameters.getObject(1, Double.class);
                     var y = commandParameters.getObject(2, Double.class);
                     var z = commandParameters.getObject(3, Double.class);
-                    reference.load().join().performWriteOperation(vCorePlayer -> vCorePlayer.teleport(x, y, z));
+                    reference.load().join()
+                             .performWriteOperation(vCorePlayer -> vCorePlayer.teleport(x, y, z, TeleportCause.COMMAND));
                 });
 
         vCoreCommand
@@ -176,7 +199,8 @@ public class NetworkCommands {
                     var sender = commandSenderInfo.getAsVCorePlayer();
                     var reference = (DataReference<VCorePlayer>) commandParameters.getReference(0, VCorePlayer.class);
                     sender.load().join().performWriteOperation(vCorePlayer -> {
-                        vCorePlayer.teleport(reference.load().join().getter(VCorePlayer::getServerLocation));
+                        vCorePlayer.teleport(reference.load().join()
+                                                      .getter(VCorePlayer::getServerLocation), TeleportCause.COMMAND);
                     });
                 });
 
@@ -191,7 +215,28 @@ public class NetworkCommands {
                     var x = commandParameters.getObject(0, Double.class);
                     var y = commandParameters.getObject(1, Double.class);
                     var z = commandParameters.getObject(2, Double.class);
-                    target.load().join().performWriteOperation(vCorePlayer -> vCorePlayer.teleport(x, y, z));
+                    target.load().join()
+                          .performWriteOperation(vCorePlayer -> vCorePlayer.teleport(x, y, z, TeleportCause.COMMAND));
+                });
+
+        vCoreCommand
+                .addCommandCallback("")
+                .withPermission("vcore.teleport")
+                .askFor("x", CommandAskType.NUMBER, "1", "2", "3")
+                .askFor("y", CommandAskType.NUMBER, "1", "2", "3")
+                .askFor("z", CommandAskType.NUMBER, "1", "2", "3")
+                .askFor("server", CommandAskType.GAMESERVER)
+                .askFor("worldName", CommandAskType.STRING, "world")
+                .commandCallback((commandSenderInfo, commandParameters) -> {
+                    var target = commandSenderInfo.getAsVCorePlayer();
+                    var x = commandParameters.getObject(0, Double.class);
+                    var y = commandParameters.getObject(1, Double.class);
+                    var z = commandParameters.getObject(2, Double.class);
+                    var server = commandParameters.getObject(3, VCoreServer.class);
+                    var worldName = commandParameters.getObject(4, String.class);
+                    var serverLoc = new ServerLocation(server, new GameLocation(worldName, x, y, z, 0, 0));
+                    target.load().join()
+                          .performWriteOperation(vCorePlayer -> vCorePlayer.teleport(serverLoc, TeleportCause.COMMAND));
                 });
     }
 

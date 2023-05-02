@@ -9,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 public record VCoreServer(@NotNull DataReference<RemoteParticipant> remoteParticipantReference) {
     void setServerAddress(String address) {
         remoteParticipantReference
-                .load()
+                .loadOrCreate()
                 .thenApply(lock -> lock.performWriteOperation(remoteParticipant -> remoteParticipant.saveCachedData("internal.serverAddress", address)));
     }
 
@@ -19,14 +19,14 @@ public record VCoreServer(@NotNull DataReference<RemoteParticipant> remotePartic
 
     void setServerPort(int port) {
         remoteParticipantReference
-                .load()
+                .loadOrCreate()
                 .thenApply(lock -> lock.performWriteOperation(remoteParticipant -> remoteParticipant.saveCachedData("internal.serverPort", port)));
     }
 
     public CompletableFuture<String> getName() {
         var future = new CompletableFuture<String>();
         remoteParticipantReference
-                .load()
+                .loadOrCreate()
                 .thenApply(lock -> lock.getter(RemoteParticipant::getIdentifier))
                 .thenApply(future::complete);
         return future;
@@ -35,7 +35,7 @@ public record VCoreServer(@NotNull DataReference<RemoteParticipant> remotePartic
     public CompletableFuture<Integer> getPort() {
         var future = new CompletableFuture<Integer>();
         remoteParticipantReference
-                .load()
+                .loadOrCreate()
                 .thenApply(lock -> lock.performReadOperation(remoteParticipant -> future.complete(remoteParticipant.getData(Integer.class, "internal.serverPort"))));
         return future;
     }
@@ -43,7 +43,7 @@ public record VCoreServer(@NotNull DataReference<RemoteParticipant> remotePartic
     public CompletableFuture<String> getAddress() {
         var future = new CompletableFuture<String>();
         remoteParticipantReference
-                .load()
+                .loadOrCreate()
                 .thenApply(lock -> lock.performReadOperation(remoteParticipant -> future.complete(remoteParticipant.getData(String.class, "internal.serverAddress"))));
         return future;
     }

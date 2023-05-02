@@ -1,14 +1,13 @@
 package de.verdox.vcore.impl.core.network;
 
 import de.verdox.vcore.api.core.network.VCoreNetwork;
-import de.verdox.vcore.api.core.network.data.VCorePlayer;
 import de.verdox.vcore.api.core.network.VCoreServer;
+import de.verdox.vcore.api.core.network.data.VCorePlayer;
 import de.verdox.vcore.api.core.network.messages.updates.*;
-import de.verdox.vcore.api.core.network.platform.types.GameLocation;
-import de.verdox.vcore.api.core.network.platform.types.PlayerGameMode;
-import de.verdox.vcore.api.core.network.platform.types.PlayerMessageType;
-import de.verdox.vcore.api.core.network.platform.types.ServerLocation;
+import de.verdox.vcore.api.core.network.platform.types.*;
 import de.verdox.vpipeline.api.messaging.MessagingService;
+import de.verdox.vpipeline.api.messaging.instruction.ResponseCollector;
+import de.verdox.vpipeline.api.messaging.instruction.types.Update;
 import de.verdox.vpipeline.api.pipeline.annotations.DataStorageIdentifier;
 import de.verdox.vpipeline.api.pipeline.annotations.PipelineDataProperties;
 import de.verdox.vpipeline.api.pipeline.core.Pipeline;
@@ -17,14 +16,17 @@ import de.verdox.vpipeline.api.pipeline.datatypes.customtypes.DataReference;
 import de.verdox.vpipeline.api.pipeline.enums.DataContext;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @DataStorageIdentifier(identifier = "VCorePlayer")
 @PipelineDataProperties(dataContext = DataContext.CACHE_ONLY)
 public class VCorePlayerImpl extends PipelineData implements VCorePlayer {
     private transient final MessagingService messagingService;
-    private ServerLocation currentServerLocation;
-    private String displayName;
+    public ServerLocation currentServerLocation;
+    public String displayName;
+
 
     public VCorePlayerImpl(@NotNull Pipeline pipeline, @NotNull UUID objectUUID) {
         super(pipeline, objectUUID);
@@ -32,6 +34,17 @@ public class VCorePlayerImpl extends PipelineData implements VCorePlayer {
     }
 
     //TODO: OnQuit and onConnect -> VCoreOfflinePlayer Data saven und loaden.
+
+
+    @Override
+    public void onSync(String dataBeforeSync) {
+
+    }
+
+    @Override
+    public void onCreate() {
+
+    }
 
     @Override
     public VCoreServer getCurrentServer() {
@@ -63,72 +76,127 @@ public class VCorePlayerImpl extends PipelineData implements VCorePlayer {
         return this;
     }
 
+    private CompletableFuture<Boolean> completeFuture(ResponseCollector<Update.UpdateCompletion> responseCollector) {
+        var future = new CompletableFuture<Boolean>();
+        responseCollector.whenResponseReceived((updateCompletion, throwable) -> {
+            if (updateCompletion.equals(Update.UpdateCompletion.DONE))
+                future.complete(true);
+            else if (updateCompletion.equals(Update.UpdateCompletion.CANCELLED))
+                future.complete(false);
+        });
+        return future;
+    }
+
     @Override
-    public void teleport(GameLocation gameLocation) {
-        VCoreNetwork
+    public CompletableFuture<Boolean> teleport(GameLocation gameLocation, TeleportCause teleportCause) {
+        Objects.requireNonNull(gameLocation);
+        Objects.requireNonNull(teleportCause);
+
+        return completeFuture(VCoreNetwork
                 .getInstance()
                 .getMessagingService()
-                .sendInstruction(TeleportPlayerUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID(), gameLocation));
+                .sendInstruction(TeleportPlayerUpdate.class, teleportPlayerUpdate -> {
+                    teleportPlayerUpdate.playerUUID = getObjectUUID();
+                    teleportPlayerUpdate.teleportCause = teleportCause;
+                    teleportPlayerUpdate.gameLocation = gameLocation;
+                }));
     }
 
+    //TODO: Alles mit Futures machen, man richtig drauf waiten kann.
+
     @Override
-    public void teleport(ServerLocation serverLocation) {
+    public CompletableFuture<Boolean> teleport(ServerLocation serverLocation, TeleportCause teleportCause) {
         if (getCurrentServer().isServer(serverLocation.server())) {
-            teleport(serverLocation.gameLocation());
-            return;
+            return teleport(serverLocation.gameLocation(), teleportCause);
         }
+        var future = new CompletableFuture<Boolean>();
         if (VCoreNetwork.getInstance().getPlatform().isConnectedToProxyNetwork()) {
-            messagingService
-                    .sendInstruction(SwitchServerUpdate.class, booleanInstruction -> booleanInstruction.withData(serverLocation
-                            .server()
-                            .remoteParticipantReference()
-                            .uuid(), serverLocation.server().getName().join()))
-                    .askForValue(aBoolean -> aBoolean)
-                    .thenRun(() -> teleport(serverLocation.gameLocation()));
+            messagingService.sendInstruction(SwitchServerUpdate.class, switchServerUpdate -> {
+                                switchServerUpdate.playerUUID = getObjectUUID();
+                                switchServerUpdate.serverName = serverLocation.server().getName().join();
+                            }).askForValue(updateCompletion -> updateCompletion.equals(Update.UpdateCompletion.DONE))
+                            .thenRun(() -> {
+                                teleport(serverLocation.gameLocation(), teleportCause).whenComplete((aBoolean, throwable) -> future.complete(aBoolean));
+                            });
         }
+        return future;
     }
 
     @Override
-    public void teleportTo(DataReference<VCorePlayer> target) {
+    public CompletableFuture<Boolean> teleportTo(DataReference<VCorePlayer> target, TeleportCause teleportCause) {
+        var future = new CompletableFuture<Boolean>();
         target.load()
               .whenComplete((vCorePlayerPipelineLock, throwable) -> {
                   var targetServerLocation = vCorePlayerPipelineLock.getter(VCorePlayer::getServerLocation);
-                  teleport(targetServerLocation);
+                  teleport(targetServerLocation, teleportCause).whenComplete((aBoolean, throwable1) -> future.complete(aBoolean));
               });
+        return future;
     }
 
     @Override
-    public void sendMessage(String message, PlayerMessageType playerMessageType) {
-        messagingService.sendInstruction(SendMessageUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID(), playerMessageType, message));
+    public CompletableFuture<Boolean> switchServer(VCoreServer vCoreServer) {
+        if (!VCoreNetwork.getInstance().getPlatform().isConnectedToProxyNetwork())
+            return CompletableFuture.completedFuture(false);
+        return completeFuture(messagingService.sendInstruction(SwitchServerUpdate.class, switchServerUpdate -> {
+            switchServerUpdate.playerUUID = getObjectUUID();
+            switchServerUpdate.serverName = vCoreServer.getName().join();
+        }));
     }
 
     @Override
-    public void setHealth(double health) {
-        messagingService.sendInstruction(SetHealthUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID(), health));
+    public CompletableFuture<Boolean> sendMessage(String message, PlayerMessageType playerMessageType) {
+        return completeFuture(messagingService.sendInstruction(SendMessageUpdate.class, sendMessageUpdate -> {
+            sendMessageUpdate.playerUUID = getObjectUUID();
+            sendMessageUpdate.message = message;
+            sendMessageUpdate.messageType = playerMessageType;
+        }));
     }
 
     @Override
-    public void setFood(int food) {
-        messagingService.sendInstruction(SetFoodUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID(), food));
+    public CompletableFuture<Boolean> setHealth(double health) {
+        return completeFuture(messagingService.sendInstruction(SetHealthUpdate.class, setHealthUpdate -> {
+            setHealthUpdate.playerUUID = getObjectUUID();
+            setHealthUpdate.health = health;
+        }));
     }
 
     @Override
-    public void clearInventory() {
-        messagingService.sendInstruction(ClearInventoryUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID()));
+    public CompletableFuture<Boolean> setFood(int food) {
+        return completeFuture(messagingService.sendInstruction(SetFoodUpdate.class, setFoodUpdate -> {
+            setFoodUpdate.playerUUID = getObjectUUID();
+            setFoodUpdate.foodValue = food;
+        }));
     }
 
     @Override
-    public void kickPlayer() {
-        messagingService.sendInstruction(KickPlayerUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID()));
+    public CompletableFuture<Boolean> clearInventory() {
+        return completeFuture(messagingService.sendInstruction(ClearInventoryUpdate.class, clearInventoryUpdate -> clearInventoryUpdate.playerUUID = getObjectUUID()));
     }
 
     @Override
-    public void killPlayer() {
-        messagingService.sendInstruction(KillPlayerUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID()));
+    public CompletableFuture<Boolean> kickPlayer() {
+        return completeFuture(messagingService.sendInstruction(KickPlayerUpdate.class, kickPlayerUpdate -> kickPlayerUpdate.playerUUID = getObjectUUID()));
     }
 
     @Override
-    public void setGameMode(PlayerGameMode playerGameMode) {
-        messagingService.sendInstruction(SetGameModeUpdate.class, booleanInstruction -> booleanInstruction.withData(getObjectUUID(), playerGameMode));
+    public CompletableFuture<Boolean> killPlayer() {
+        return completeFuture(messagingService.sendInstruction(KillPlayerUpdate.class, killPlayerUpdate -> killPlayerUpdate.playerUUID = getObjectUUID()));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setGameMode(PlayerGameMode playerGameMode) {
+        return completeFuture(messagingService.sendInstruction(SetGameModeUpdate.class, setGameModeUpdate -> {
+            setGameModeUpdate.playerUUID = getObjectUUID();
+            setGameModeUpdate.playerGameMode = playerGameMode;
+        }));
+    }
+
+    @Override
+    public String toString() {
+        return "VCorePlayerImpl{" +
+                "messagingService=" + messagingService +
+                ", currentServerLocation=" + currentServerLocation +
+                ", displayName='" + displayName + '\'' +
+                '}';
     }
 }
