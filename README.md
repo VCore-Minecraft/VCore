@@ -20,7 +20,7 @@ The api will get big changes so use it at your own risk!
 
 ## Importing the API using Maven
 
-[Choose latest Tag on Jitpack](https://jitpack.io/#derverdox/VCore)
+[Choose latest Tag on Jitpack](https://jitpack.io/#VCore-Minecraft/VCore)
 
 	<repositories>
 		<repository>
