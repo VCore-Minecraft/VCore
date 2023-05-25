@@ -1,8 +1,10 @@
 package de.verdox.vcore.impl.proxy.waterfall;
 
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.verdox.vcore.api.core.network.NetworkConfig;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
 import de.verdox.vcore.api.core.network.platform.ProxyPlatform;
+import de.verdox.vcore.impl.gameserver.paper.typeadapters.NBTCompoundTypeAdapter;
 import de.verdox.vcore.impl.proxy.listener.PlayerListener;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import net.md_5.bungee.api.plugin.Plugin;

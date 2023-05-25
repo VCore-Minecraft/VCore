@@ -92,6 +92,8 @@ public class NetworkCommands {
                     .askFor("gameMode", CommandAskType.ENUM, () -> gamemodeSuggestion)
                     .commandCallback((commandSenderInfo, commandParameters) -> {
                         var gameMode = commandParameters.getEnum(0, PlayerGameMode.class);
+                        if(gameMode == null)
+                            return;
                         commandSenderInfo
                                 .getAsVCorePlayer()
                                 .load()

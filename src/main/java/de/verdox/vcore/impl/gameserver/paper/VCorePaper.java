@@ -1,5 +1,7 @@
 package de.verdox.vcore.impl.gameserver.paper;
 
+import de.tr7zw.changeme.nbtapi.NBTCompound;
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.verdox.vcore.api.core.network.NetworkConfig;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
 import de.verdox.vcore.impl.core.network.commands.NetworkCommands;
@@ -50,6 +52,7 @@ public class VCorePaper extends JavaPlugin {
             gsonBuilder.registerTypeHierarchyAdapter(NamespacedKey.class, new NameSpacedKeyTypeAdapter());
             gsonBuilder.registerTypeHierarchyAdapter(AttributeModifierTypeAdapter.class, new AttributeModifierTypeAdapter());
             gsonBuilder.registerTypeHierarchyAdapter(PlayerAdvancementProgress.class, new PlayerAdvancementProgressTypeAdapter());
+            gsonBuilder.registerTypeHierarchyAdapter(ReadWriteNBT.class, new NBTCompoundTypeAdapter());
         });
     }
 
@@ -63,7 +66,7 @@ public class VCorePaper extends JavaPlugin {
         NetworkCommands.setupBroadcastCommand(new PaperCommand(this, "broadcast"));
         NetworkCommands.setupClearInventoryCommand(new PaperCommand(this, "clearInventory"));
         NetworkCommands.setupKickCommand(new PaperCommand(this, "kick"));
-        NetworkCommands.setupKillCommand(new PaperCommand(this, "kill"));
+        NetworkCommands.setupKillCommand(new PaperCommand(this, "killPlayer"));
         NetworkCommands.setupMessageCommand(new PaperCommand(this, "message"));
         new PlayerListener(this);
     }

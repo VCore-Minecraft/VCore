@@ -1,12 +1,14 @@
 package de.verdox.vcore.api.core.network;
 
 import com.google.gson.GsonBuilder;
+import de.verdox.vcore.api.core.network.data.PlayerData;
 import de.verdox.vcore.api.core.network.data.VCoreOfflinePlayer;
 import de.verdox.vcore.api.core.network.data.VCorePlayer;
 import de.verdox.vcore.api.core.network.messages.updates.*;
 import de.verdox.vcore.api.core.network.platform.Platform;
 import de.verdox.vcore.api.core.network.platform.types.PlayerMessageType;
 import de.verdox.vcore.api.core.network.platform.types.ServerLocation;
+import de.verdox.vcore.impl.core.network.PlayerDataImpl;
 import de.verdox.vcore.impl.core.network.VCoreOfflinePlayerImpl;
 import de.verdox.vcore.impl.core.network.VCorePlayerImpl;
 import de.verdox.vpipeline.api.NetworkParticipant;
@@ -101,6 +103,7 @@ public final class VCoreNetwork {
 
         this.pipeline.getDataRegistry().registerType(VCorePlayerImpl.class);
         this.pipeline.getDataRegistry().registerType(VCoreOfflinePlayerImpl.class);
+        this.pipeline.getDataRegistry().registerType(PlayerDataImpl.class);
 
         this.pipeline.loadAllData(VCorePlayerImpl.class);
         this.pipeline.loadAllData(VCoreOfflinePlayerImpl.class);
@@ -114,15 +117,15 @@ public final class VCoreNetwork {
         return this.pipeline.createDataReference(VCorePlayerImpl.class, uuid);
     }
 
-    public CompletableFuture<Void> addPlayerToCache(UUID uuid, String displayName, @Nullable ServerLocation serverLocation) {
-        var future = new CompletableFuture<Void>();
+    public CompletableFuture<DataReference<VCorePlayerImpl>> addPlayerToCache(UUID uuid, String displayName, @Nullable ServerLocation serverLocation) {
+        var future = new CompletableFuture<DataReference<VCorePlayerImpl>>();
         this.pipeline.loadOrCreate(VCorePlayerImpl.class, uuid).whenComplete((vCorePlayerPipelineLock, throwable) -> {
             vCorePlayerPipelineLock.performWriteOperation(vCorePlayer -> {
                 vCorePlayer.setDisplayName(displayName);
                 if (serverLocation != null)
                     vCorePlayer.setCurrentServerLocation(serverLocation);
             });
-            future.complete(null);
+            future.complete(vCorePlayerPipelineLock.asReference());
         });
         return future;
     }
@@ -132,6 +135,10 @@ public final class VCoreNetwork {
             broadcastMessageUpdate.playerMessageType = playerMessageType;
             broadcastMessageUpdate.message = message;
         });
+    }
+
+    public DataReference<PlayerData> getPlayerData(UUID uuid){
+        return this.pipeline.createDataReference(PlayerDataImpl.class, uuid);
     }
 
     public CompletableFuture<Boolean> removePlayerFromCache(UUID uuid) {

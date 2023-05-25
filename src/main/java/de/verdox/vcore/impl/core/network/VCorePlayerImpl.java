@@ -1,5 +1,7 @@
 package de.verdox.vcore.impl.core.network;
 
+import de.tr7zw.changeme.nbtapi.NBTCompound;
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.verdox.vcore.api.core.network.VCoreNetwork;
 import de.verdox.vcore.api.core.network.VCoreServer;
 import de.verdox.vcore.api.core.network.data.VCorePlayer;
@@ -32,9 +34,6 @@ public class VCorePlayerImpl extends PipelineData implements VCorePlayer {
         super(pipeline, objectUUID);
         messagingService = VCoreNetwork.getInstance().getMessagingService();
     }
-
-    //TODO: OnQuit and onConnect -> VCoreOfflinePlayer Data saven und loaden.
-
 
     @Override
     public void onSync(String dataBeforeSync) {
